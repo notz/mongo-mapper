@@ -3,15 +3,14 @@ package eu.dozd.mongo;
 import com.mongodb.client.MongoCollection;
 import eu.dozd.mongo.entity.*;
 import org.bson.*;
+import org.bson.types.Binary;
 import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
+import java.security.SecureRandom;
+import java.util.*;
 
 import static eu.dozd.mongo.entity.TestEntityEnumMap.QualityOfLife.BEST;
 import static eu.dozd.mongo.entity.TestEntityEnumMap.QualityOfLife.EVEN_BETTER;
@@ -144,6 +143,50 @@ public class MongoMapperIT extends AbstractMongoIT {
         Assert.assertTrue(document.containsKey("name"));
         Assert.assertTrue(document.containsKey("i"));
         Assert.assertFalse(document.containsKey("j"));
+    }
+
+    @Test
+    public void testEnrypted() {
+        MongoCollection<TestEntityEncrypted> collection = db.getCollection("test_encrypted", TestEntityEncrypted.class);
+        collection.drop();
+
+        byte[] byteArray = new byte[32];
+        new Random().nextBytes(byteArray);
+
+        TestEntityEncrypted entity = new TestEntityEncrypted();
+        entity.setChecked(true);
+        entity.setName("Hello");
+        entity.setI(2);
+        entity.setByteArray(byteArray);
+
+        collection.insertOne(entity);
+
+        TestEntityEncrypted returned = collection.find().first();
+        Assert.assertEquals(entity.isChecked(), returned.isChecked());
+        Assert.assertNotNull(returned.getName());
+        Assert.assertEquals(entity.getName(), returned.getName());
+        Assert.assertEquals(entity.getI(), returned.getI());
+        Assert.assertTrue(Arrays.equals(entity.getByteArray(), returned.getByteArray()));
+
+        MongoCollection<Document> documentCollection = db.getCollection("test_encrypted", Document.class);
+        Document document = documentCollection.find().first();
+        Assert.assertTrue(document.containsKey("name"));
+        Assert.assertTrue(document.get("name") instanceof Binary);
+        Assert.assertTrue(document.get("i") instanceof Binary);
+        Assert.assertTrue(document.get("byteArray") instanceof Binary);
+
+        // read unencrypted data
+        document.put("name", entity.getName());
+        document.put("i", entity.getI());
+        document.put("byteArray", entity.getByteArray());
+        documentCollection.replaceOne(new Document("_id", document.get("_id")), document);
+
+        returned = collection.find().first();
+        Assert.assertEquals(entity.isChecked(), returned.isChecked());
+        Assert.assertNotNull(returned.getName());
+        Assert.assertEquals(entity.getName(), returned.getName());
+        Assert.assertEquals(entity.getI(), returned.getI());
+        Assert.assertTrue(Arrays.equals(entity.getByteArray(), returned.getByteArray()));
     }
 
     @Test

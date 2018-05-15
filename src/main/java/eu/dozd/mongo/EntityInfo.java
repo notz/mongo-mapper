@@ -83,6 +83,23 @@ class EntityInfo {
         return pd.getPropertyType().isAnnotationPresent(NonNull.class);
     }
 
+    boolean isEncrypted(String field) {
+        if (!fields.containsKey(field)) {
+            return false;
+        }
+
+        try {
+            if (clazz.getDeclaredField(field).isAnnotationPresent(Encrypted.class)) {
+                return true;
+            }
+        } catch (NoSuchFieldException e) {
+            return false;
+        }
+
+        PropertyDescriptor pd = getField(field);
+        return pd.getPropertyType().isAnnotationPresent(Encrypted.class);
+    }
+
     boolean isGenericList(String field) {
         if (!fields.containsKey(field)) {
             return false;

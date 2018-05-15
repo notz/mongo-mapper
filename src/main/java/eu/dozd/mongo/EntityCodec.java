@@ -15,6 +15,7 @@ import java.util.*;
  */
 class EntityCodec<T> implements CollectibleCodec<T> {
     private static final String ID_FIELD = "_id";
+    private static final byte BINARY_SUB_TYPE_ENCRYPTED = -81;
     private final Class<T> clazz;
     private final EntityInfo info;
     private final IdGenerator idGenerator;
@@ -187,6 +188,9 @@ class EntityCodec<T> implements CollectibleCodec<T> {
             } else {
                 Object value = info.getValue(t, field);
                 if (value != null || !info.isNonNull(field)) {
+                    if (value != null && info.isEncrypted(field)) {
+                        value = new BsonBinary(BINARY_SUB_TYPE_ENCRYPTED, MongoMapper.getCryptoProvider().encrypt(value));
+                    }
                     document.put(field, value);
                 }
             }
@@ -214,6 +218,13 @@ class EntityCodec<T> implements CollectibleCodec<T> {
             codec = getCodecForType(info.getFieldType(fieldName));
 
             if (codec != null) {
+                if (bsonType == BsonType.BINARY && info.isEncrypted(fieldName)) {
+                    byte bsonSubType = reader.peekBinarySubType();
+                    if (bsonSubType == BINARY_SUB_TYPE_ENCRYPTED) {
+                        byte[] data = registry.get(byte[].class).decode(reader, decoderContext);
+                        return MongoMapper.getCryptoProvider().decrypt(data);
+                    }
+                }
                 return codec.decode(reader, decoderContext);
             }
         }
@@ -225,6 +236,9 @@ class EntityCodec<T> implements CollectibleCodec<T> {
             byte bsonSubType = reader.peekBinarySubType();
             if (bsonSubType == BsonBinarySubType.UUID_STANDARD.getValue() || bsonSubType == BsonBinarySubType.UUID_LEGACY.getValue()) {
                 return registry.get(UUID.class).decode(reader, decoderContext);
+            } else if (bsonSubType == BINARY_SUB_TYPE_ENCRYPTED && info.isEncrypted(fieldName)) {
+                byte[] data = registry.get(byte[].class).decode(reader, decoderContext);
+                return MongoMapper.getCryptoProvider().decrypt(data);
             }
         }
         return registry.get(bsonTypeClassMap.get(bsonType)).decode(reader, decoderContext);

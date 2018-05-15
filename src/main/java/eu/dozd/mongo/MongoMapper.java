@@ -1,6 +1,7 @@
 package eu.dozd.mongo;
 
 import eu.dozd.mongo.codecs.bigdecimal.BigDecimalCodecProvider;
+import eu.dozd.mongo.crypto.*;
 import org.bson.codecs.BsonValueCodecProvider;
 import org.bson.codecs.DocumentCodecProvider;
 import org.bson.codecs.ValueCodecProvider;
@@ -29,11 +30,21 @@ public class MongoMapper {
             new BigDecimalCodecProvider()
     ));
 
+    private static CryptoProvider cryptoProvider = null;
+
     public static List<CodecProvider> getProviders() {
         return (ArrayList) providers.clone();
     }
 
     public static void addProvider(CodecProvider provider) {
         providers.add(provider);
+    }
+
+    public static void setCryptoProvider(CryptoProvider cryptoProvider) {
+        MongoMapper.cryptoProvider = cryptoProvider;
+    }
+
+    public static CryptoProvider getCryptoProvider() {
+        return cryptoProvider;
     }
 }
